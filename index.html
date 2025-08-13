@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mentor Capacity</title>
+<style>
+  :root { --gap:12px; --radius:12px; --border:#e5e7eb; --muted:#6b7280; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; padding:16px; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h2 { margin:0 0 8px 0; font-size:18px; }
+  .updated { color:var(--muted); font-size:12px; margin-bottom:12px; }
+  .grid { display:grid; grid-template-columns:1fr; gap:var(--gap); }
+  .card { border:1px solid var(--border); border-radius:var(--radius); padding:12px; }
+  .row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .name { font-weight:600; }
+  .tag { font-size:12px; color:var(--muted); }
+  .bar { height:10px; border-radius:6px; background:#eee; overflow:hidden; margin-top:8px; }
+  .fill { height:100%; transition:width .25s ease; }
+  .ok  .fill { background:#22c55e; }  /* green */
+  .low .fill { background:#f59e0b; }  /* amber */
+  .full .fill { background:#ef4444; } /* red */
+  .full { opacity:.7; }
+  .error { color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; padding:8px; border-radius:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Current mentor capacity</h2>
+  <div class="updated" id="updated"></div>
+  <div id="mount">Loading…</div>
+</div>
+
+<script>
+const DATA_URL   = 'https://YOUR_N8N_HOST/webhook/available-mentors'; // ← change me
+const REFRESH_MS = 15000; // refresh every 15s
+
+const mount = document.getElementById('mount');
+const updated = document.getElementById('updated');
+
+function cls(pct, left){ if(left<=0) return 'full'; if(pct<=30) return 'low'; return 'ok'; }
+
+function render(list){
+  // OPTIONAL: hide full mentors in the widget
+  // list = list.filter(m => m.left > 0);
+
+  // sort by most availability
+  list.sort((a,b)=> b.left - a.left);
+
+  const grid = document.createElement('div'); grid.className='grid';
+  list.forEach(m=>{
+    const card = document.createElement('div'); card.className = 'card ' + cls(m.pct, m.left);
+    const top  = document.createElement('div'); top.className = 'row';
+    top.innerHTML = `<div class="name">${m.mentorName}</div>
+                     <div class="tag">${m.left}/${m.capacity} left${m.day? ' • '+m.day : ''}</div>`;
+    const bar  = document.createElement('div'); bar.className='bar';
+    const fill = document.createElement('div'); fill.className='fill'; fill.style.width = (m.pct||0)+'%';
+    bar.appendChild(fill);
+    card.appendChild(top); card.appendChild(bar);
+    grid.appendChild(card);
+  });
+  mount.innerHTML=''; mount.appendChild(grid);
+  updated.textContent = 'Last updated ' + new Date().toLocaleString();
+}
+
+async function load(){
+  try{
+    const res = await fetch(DATA_URL, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    const list = Array.isArray(json) ? json : (json.data || []);
+    render(list);
+  }catch(e){
+    mount.innerHTML = `<div class="error">Couldn’t load capacity: ${e.message}</div>`;
+  }
+}
+load(); setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
